@@ -272,16 +272,39 @@
                 let suitableVoices = availableVoices.filter(v => v.lang.startsWith(langPrefix));
                 
                 if (suitableVoices.length > 0) {
-                    // 核心魔法：优先挑选高质量的 AI 语音包
-                    let bestVoice = suitableVoices.find(v => 
-                        v.name.includes('Natural') || // 微软 Edge 高级在线语音
-                        v.name.includes('Online') ||  // 其他在线语音
-                        v.name.includes('Premium') || // 苹果高级语音
-                        v.name.includes('Siri') ||    // 苹果 Siri 语音
-                        v.name.includes('Google')     // 谷歌高级语音
-                    );
+                    let bestVoice;
                     
-                    // 如果找到了高级语音就用它，没找到就用列表里的第一个凑合
+                    // 英文优先寻找高质量男声：Edge的Guy/David，苹果的Alex/Daniel，或带有Male标签的
+                    if (langPrefix === 'en') {
+                        bestVoice = suitableVoices.find(v => 
+                            v.name.includes('Guy') || 
+                            v.name.includes('David') || 
+                            v.name.includes('Alex') || 
+                            v.name.includes('Daniel') || 
+                            v.name.includes('Male')
+                        );
+                    } 
+                    // 中文优先寻找高质量男声：Edge极其逼真的Yunxi(云希)/Yunjian，苹果的Yunze，或带有Male标签的
+                    else if (langPrefix === 'zh') {
+                        bestVoice = suitableVoices.find(v => 
+                            v.name.includes('Yunxi') || 
+                            v.name.includes('Yunjian') || 
+                            v.name.includes('Yunze') || 
+                            v.name.includes('Kangkang') ||
+                            v.name.includes('Male')
+                        );
+                    }
+                    
+                    // 如果没找到专属男声，就退而求其次找高级语音 (Natural/Premium/Online)
+                    if (!bestVoice) {
+                        bestVoice = suitableVoices.find(v => 
+                            v.name.includes('Natural') || 
+                            v.name.includes('Premium') || 
+                            v.name.includes('Online')
+                        );
+                    }
+                    
+                    // 最终决定：有好的就用好的，没有就只能拿列表里第一个凑合
                     utterance.voice = bestVoice || suitableVoices[0];
                 }
                 
