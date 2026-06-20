@@ -241,23 +241,56 @@
         }
 
         // ================= 语音引擎逻辑 =================
+        // ================= 语音引擎逻辑 =================
         const synth = window.speechSynthesis;
+        let availableVoices = [];
 
-        // 包装发音函数为 Promise，方便使用 await 顺序执行
+        // 预加载设备上所有的语音包（解决手机端加载延迟问题）
+        function loadVoices() {
+            availableVoices = synth.getVoices();
+        }
+        if (speechSynthesis.onvoiceschanged !== undefined) {
+            speechSynthesis.onvoiceschanged = loadVoices;
+        }
+        // 立即尝试加载一次
+        loadVoices();
+
+        // 包装发音函数
         function speak(text, lang) {
-            return new Promise((resolve, reject) => {
+            return new Promise((resolve) => {
                 if (abortController?.signal.aborted) return resolve();
                 
                 const utterance = new SpeechSynthesisUtterance(text);
                 utterance.lang = lang;
-                utterance.rate = 0.9; // 稍微放慢语速适合学习
+                utterance.rate = 0.9; 
+                
+                // 如果语音包还没加载出来，再抓取一次
+                if (availableVoices.length === 0) loadVoices();
+                
+                // 筛选出对应语言（英文或中文）的语音包
+                const langPrefix = lang.split('-')[0];
+                let suitableVoices = availableVoices.filter(v => v.lang.startsWith(langPrefix));
+                
+                if (suitableVoices.length > 0) {
+                    // 核心魔法：优先挑选高质量的 AI 语音包
+                    let bestVoice = suitableVoices.find(v => 
+                        v.name.includes('Natural') || // 微软 Edge 高级在线语音
+                        v.name.includes('Online') ||  // 其他在线语音
+                        v.name.includes('Premium') || // 苹果高级语音
+                        v.name.includes('Siri') ||    // 苹果 Siri 语音
+                        v.name.includes('Google')     // 谷歌高级语音
+                    );
+                    
+                    // 如果找到了高级语音就用它，没找到就用列表里的第一个凑合
+                    utterance.voice = bestVoice || suitableVoices[0];
+                }
                 
                 utterance.onend = () => resolve();
-                utterance.onerror = (e) => resolve(); // 忽略错误继续
+                utterance.onerror = (e) => resolve(); // 忽略报错，防止卡死
                 
                 synth.speak(utterance);
 
-                // 监听中断信号，立刻停止发音
+                // 监听中断信号，随时刹车
                 abortController.signal.addEventListener('abort', () => {
                     synth.cancel();
                     resolve();
@@ -300,7 +333,9 @@
                 if (abortController.signal.aborted) continue;
                 await sleep(200);
 
-                await speak(currentItem.explanation, 'zh-CN');
+                // 用正则表达式过滤掉形如 adj., n., v., adv. 等带点的英文字母组合
+                const cleanExplanation = currentItem.explanation.replace(/[a-zA-Z/]+\.\s*/g, '');
+                await speak(cleanExplanation, 'zh-CN');
                 if (abortController.signal.aborted) continue;
                 
                 // 播完一个单词后停顿 1.5 秒
