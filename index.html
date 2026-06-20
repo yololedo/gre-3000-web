@@ -1,0 +1,375 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>GRE 3000 语音循环复习</title>
+    <style>
+        /* 基础样式与变量 */
+        :root {
+            --bg-light: #f5f5f7;
+            --text-dark: #1d1d1f;
+            --bg-dark: #1e1e1e;
+            --text-light: #ffffff;
+            --accent-blue: #0a84ff;
+        }
+        body {
+            margin: 0;
+            font-family: 'Segoe UI', 'Microsoft YaHei', sans-serif;
+            background-color: var(--bg-light);
+            color: var(--text-dark);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        /* 选单界面 (菜单) */
+        #menu-view {
+            text-align: center;
+            background: white;
+            padding: 40px;
+            border-radius: 16px;
+            box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+            width: 90%;
+            max-width: 400px;
+        }
+        h1 { font-size: 20px; margin-bottom: 20px; }
+        .menu-btn {
+            display: block;
+            width: 100%;
+            padding: 12px;
+            margin: 10px 0;
+            font-size: 16px;
+            border: none;
+            border-radius: 8px;
+            background-color: var(--bg-light);
+            color: var(--text-dark);
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+        .menu-btn:hover { background-color: #e5e5e7; }
+        #resume-btn { background-color: #e8f4fd; color: var(--accent-blue); font-weight: bold; }
+
+        /* 播放器界面 (暗黑模式) */
+        #player-view {
+            display: none;
+            background-color: var(--bg-dark);
+            color: var(--text-light);
+            width: 100%;
+            height: 100vh;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            position: relative;
+        }
+        .top-bar {
+            position: absolute;
+            top: 20px;
+            width: 90%;
+            display: flex;
+            justify-content: space-between;
+            color: #888;
+            font-size: 14px;
+        }
+        .btn-text { cursor: pointer; }
+        .btn-text:hover { color: white; }
+
+        #word-display { font-size: 48px; font-weight: bold; margin-bottom: 10px; }
+        #exp-display { font-size: 20px; color: #34a853; text-align: center; padding: 0 20px; min-height: 60px;}
+
+        /* 进度条 */
+        .progress-container { width: 80%; max-width: 500px; margin: 30px 0; display: flex; align-items: center; gap: 15px;}
+        input[type=range] {
+            flex-grow: 1;
+            -webkit-appearance: none;
+            background: #3a3a3c;
+            height: 6px;
+            border-radius: 3px;
+            outline: none;
+        }
+        input[type=range]::-webkit-slider-thumb {
+            -webkit-appearance: none;
+            width: 16px; height: 16px;
+            background: white;
+            border-radius: 50%;
+            cursor: pointer;
+        }
+
+        /* 底部控制栏 */
+        .controls { display: flex; gap: 20px; }
+        .ctrl-btn {
+            background: #2a2a2a; color: #b0b0b0; border: none;
+            padding: 12px 24px; border-radius: 8px; font-size: 16px; cursor: pointer;
+            transition: background 0.2s;
+        }
+        .ctrl-btn:hover { background: #3a3a3a; color: white; }
+    </style>
+</head>
+<body>
+
+    <div id="menu-view">
+        <h1>GRE 3000 语音循环复习</h1>
+        <div id="resume-container" style="display: none;">
+            <button id="resume-btn" class="menu-btn" onclick="resumeProgress()">🔄 恢复上次进度<br><span id="resume-text" style="font-size: 12px; font-weight: normal;"></span></button>
+            <hr style="border: 0; border-top: 1px solid #eee; margin: 20px 0;">
+        </div>
+        <div style="font-size: 14px; color: #888; margin-bottom: 10px;">全新复习分组选择：</div>
+        <button class="menu-btn" onclick="startPlay(1, 5)">List 1 — List 5</button>
+        <button class="menu-btn" onclick="startPlay(6, 10)">List 6 — List 10</button>
+        <button class="menu-btn" onclick="startPlay(11, 15)">List 11 — List 15</button>
+        <button class="menu-btn" onclick="startPlay(16, 20)">List 16 — List 20</button>
+        <button class="menu-btn" onclick="startPlay(21, 25)">List 21 — List 25</button>
+        <button class="menu-btn" onclick="startPlay(26, 30)">List 26 — List 30</button>
+    </div>
+
+    <div id="player-view">
+        <div class="top-bar">
+            <span id="info-status">Loading...</span>
+            <div>
+                <span class="btn-text" onclick="returnToMenu()" style="margin-right: 20px;">🏠 菜单</span>
+            </div>
+        </div>
+
+        <div id="word-display">Word</div>
+        <div id="exp-display">Explanation</div>
+
+        <div class="progress-container">
+            <span id="progress-current" style="color: #888; font-size: 14px;">0</span>
+            <input type="range" id="progress-bar" min="0" max="100" value="0" oninput="seekTo(this.value)">
+            <span id="progress-total" style="color: #888; font-size: 14px;">0</span>
+        </div>
+
+        <div class="controls">
+            <button class="ctrl-btn" onclick="prevWord()">⏪ 后退</button>
+            <button class="ctrl-btn" id="pause-btn" onclick="togglePause()">⏸ 暂停</button>
+            <button class="ctrl-btn" onclick="nextWord()">⏩ 跳过</button>
+            <button class="ctrl-btn" id="mode-btn" onclick="toggleMode()">🔄 循环</button>
+        </div>
+    </div>
+
+    <script>
+        let allWordsData = {};
+        let currentPlaylist = [];
+        let currentStart = 1, currentEnd = 5;
+        let currentIndex = 0;
+        
+        // 播放状态控制
+        let isPlaying = false;
+        let isPaused = false;
+        let isLooping = true;
+        let abortController = null; // 用于随时中断当前的等待和发音
+
+        // DOM 元素
+        const menuView = document.getElementById('menu-view');
+        const playerView = document.getElementById('player-view');
+        const wordDisplay = document.getElementById('word-display');
+        const expDisplay = document.getElementById('exp-display');
+        const infoStatus = document.getElementById('info-status');
+        const progressBar = document.getElementById('progress-bar');
+        const pauseBtn = document.getElementById('pause-btn');
+        const modeBtn = document.getElementById('mode-btn');
+
+        // 初始化加载数据
+        window.onload = async () => {
+            try {
+                // 读取本地 JSON (注意：直接双击 HTML 可能因跨域拦截，见后文说明)
+                const response = await fetch('words.json');
+                allWordsData = await response.json();
+                checkCache();
+            } catch (err) {
+                alert('加载单词数据失败！请确保你在本地启动了服务器，而不是直接双击打开文件。错误信息: ' + err.message);
+            }
+        };
+
+        // 检查上次播放进度
+        function checkCache() {
+            const cache = localStorage.getItem('gre_progress');
+            if (cache) {
+                const data = JSON.parse(cache);
+                document.getElementById('resume-container').style.display = 'block';
+                document.getElementById('resume-text').innerText = `上次听到: List ${data.start}-${data.end} (第 ${data.index + 1} 个词)`;
+            }
+        }
+
+        // 开始播放核心逻辑
+        function startPlay(start, end, initIndex = 0) {
+            currentStart = start;
+            currentEnd = end;
+            currentIndex = initIndex;
+            currentPlaylist = [];
+
+            // 把选定范围内的 List 数据合并成一个大数组
+            for (let i = start; i <= end; i++) {
+                const listKey = `List ${i}`;
+                if (allWordsData[listKey]) {
+                    // 给每个单词加上它所属的 List 信息，方便展示
+                    const wordsWithList = allWordsData[listKey].map(w => ({...w, listName: listKey}));
+                    currentPlaylist = currentPlaylist.concat(wordsWithList);
+                }
+            }
+
+            if (currentPlaylist.length === 0) {
+                alert("选中的 List 中没有需要复习的单词！");
+                return;
+            }
+
+            // 切换 UI
+            menuView.style.display = 'none';
+            playerView.style.display = 'flex';
+            progressBar.max = currentPlaylist.length - 1;
+            document.getElementById('progress-total').innerText = currentPlaylist.length;
+
+            isPlaying = true;
+            isPaused = false;
+            pauseBtn.innerHTML = "⏸ 暂停";
+            playLoop();
+        }
+
+        function resumeProgress() {
+            const cache = JSON.parse(localStorage.getItem('gre_progress'));
+            if (cache) startPlay(cache.start, cache.end, cache.index);
+        }
+
+        function saveProgress() {
+            localStorage.setItem('gre_progress', JSON.stringify({
+                start: currentStart,
+                end: currentEnd,
+                index: currentIndex
+            }));
+        }
+
+        // ================= 语音引擎逻辑 =================
+        const synth = window.speechSynthesis;
+
+        // 包装发音函数为 Promise，方便使用 await 顺序执行
+        function speak(text, lang) {
+            return new Promise((resolve, reject) => {
+                if (abortController?.signal.aborted) return resolve();
+                
+                const utterance = new SpeechSynthesisUtterance(text);
+                utterance.lang = lang;
+                utterance.rate = 0.9; // 稍微放慢语速适合学习
+                
+                utterance.onend = () => resolve();
+                utterance.onerror = (e) => resolve(); // 忽略错误继续
+                
+                synth.speak(utterance);
+
+                // 监听中断信号，立刻停止发音
+                abortController.signal.addEventListener('abort', () => {
+                    synth.cancel();
+                    resolve();
+                });
+            });
+        }
+
+        // 延时函数
+        function sleep(ms) {
+            return new Promise(resolve => {
+                const timeout = setTimeout(resolve, ms);
+                abortController.signal.addEventListener('abort', () => {
+                    clearTimeout(timeout);
+                    resolve();
+                });
+            });
+        }
+
+        // 主播放循环 (复刻 Python 里的 play_loop)
+        async function playLoop() {
+            while (isPlaying) {
+                if (isPaused) {
+                    await new Promise(r => setTimeout(r, 200)); // 暂停时等待
+                    continue;
+                }
+
+                // 创建一个新的中断控制器，用于切歌
+                abortController = new AbortController(); 
+                
+                const currentItem = currentPlaylist[currentIndex];
+                saveProgress();
+                updateUI();
+
+                // 执行播放序列：英文 -> 停0.2s -> 英文 -> 停0.2s -> 中文
+                await speak(currentItem.word, 'en-US');
+                if (abortController.signal.aborted) continue;
+                await sleep(200);
+
+                await speak(currentItem.word, 'en-US');
+                if (abortController.signal.aborted) continue;
+                await sleep(200);
+
+                await speak(currentItem.explanation, 'zh-CN');
+                if (abortController.signal.aborted) continue;
+                
+                // 播完一个单词后停顿 1.5 秒
+                await sleep(1500);
+                if (abortController.signal.aborted) continue;
+
+                // 准备播放下一个
+                if (!isPaused) {
+                    currentIndex++;
+                    if (currentIndex >= currentPlaylist.length) {
+                        if (isLooping) {
+                            currentIndex = 0;
+                        } else {
+                            currentIndex = currentPlaylist.length - 1;
+                            togglePause(); // 播完停止
+                        }
+                    }
+                }
+            }
+        }
+
+        // ================= UI与控制逻辑 =================
+        function updateUI() {
+            const item = currentPlaylist[currentIndex];
+            wordDisplay.innerText = item.word;
+            expDisplay.innerText = item.explanation;
+            infoStatus.innerText = `当前: ${item.listName} | 第 ${currentIndex + 1}/${currentPlaylist.length} 词`;
+            progressBar.value = currentIndex;
+            document.getElementById('progress-current').innerText = currentIndex + 1;
+        }
+
+        // 强制跳到下一首/上一首时，需要中断当前的播放序列
+        function skipTo(index) {
+            currentIndex = (index + currentPlaylist.length) % currentPlaylist.length;
+            if (abortController) abortController.abort(); // 立刻打断当前语音和等待
+            synth.cancel();
+        }
+
+        function nextWord() { skipTo(currentIndex + 1); }
+        function prevWord() { skipTo(currentIndex - 1); }
+        
+        function seekTo(val) {
+            skipTo(parseInt(val));
+        }
+
+        function togglePause() {
+            isPaused = !isPaused;
+            pauseBtn.innerHTML = isPaused ? "▶ 继续" : "⏸ 暂停";
+            if (isPaused) {
+                synth.pause();
+            } else {
+                synth.resume();
+            }
+        }
+
+        function toggleMode() {
+            isLooping = !isLooping;
+            modeBtn.innerHTML = isLooping ? "🔄 循环" : "🛑 播完暂停";
+            modeBtn.style.color = isLooping ? "#b0b0b0" : "#49b6ff";
+        }
+
+        function returnToMenu() {
+            isPlaying = false;
+            if (abortController) abortController.abort();
+            synth.cancel();
+            playerView.style.display = 'none';
+            menuView.style.display = 'block';
+            checkCache(); // 返回菜单时刷新一下“上次听到”的记录
+        }
+    </script>
+</body>
+</html>
